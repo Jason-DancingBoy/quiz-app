@@ -155,8 +155,12 @@ async def delete_document(doc_id: int, db: AsyncSession = Depends(get_db)):
         os.remove(doc.file_path)
         logger.info("Deleted uploaded file: %s", doc.file_path)
 
-    await delete_chunks(doc_id)
-
     await db.commit()
     logger.info("Document deleted: id=%d", doc_id)
+
+    try:
+        await delete_chunks(doc_id)
+    except Exception as e:
+        logger.warning("Failed to delete ChromaDB chunks (non-fatal): %s", e)
+
     return {"ok": True}

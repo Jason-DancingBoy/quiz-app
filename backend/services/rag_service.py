@@ -73,7 +73,7 @@ async def insert_chunks(
 async def delete_chunks(document_id: int) -> None:
     """Remove all embedded chunks for a document from ChromaDB."""
     col = _get_collection()
-    col.delete(where={"doc_id": str(document_id)})
+    await asyncio.to_thread(col.delete, where={"doc_id": str(document_id)})
     logger.info("Chunks deleted from ChromaDB: doc_id=%d", document_id)
 
 
