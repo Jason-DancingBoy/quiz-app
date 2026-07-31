@@ -1,0 +1,23 @@
+[Unit]
+Description=Quiz App
+After=network.target
+
+[Service]
+Type=simple
+User={{USER}}
+WorkingDirectory={{PROJECT_ROOT}}
+EnvironmentFile={{PROJECT_ROOT}}/.env
+Environment=DATABASE_URL=sqlite+aiosqlite:///{{PROJECT_ROOT}}/data/quiz.db
+Environment=LIGHTRAG_DIR={{PROJECT_ROOT}}/data/lightrag
+Environment=CHROMA_PERSIST_DIR={{PROJECT_ROOT}}/data/chroma
+Environment=UPLOAD_DIR={{PROJECT_ROOT}}/data/uploads
+Environment=STATIC_DIR={{PROJECT_ROOT}}/static
+Environment=HF_ENDPOINT=https://hf-mirror.com
+Environment=HF_HOME={{PROJECT_ROOT}}/models
+Environment=VAULT_DIR={{VAULT_DIR}}
+ExecStart={{PROJECT_ROOT}}/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 9200
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
