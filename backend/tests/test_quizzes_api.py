@@ -1,3 +1,4 @@
+import os
 import pytest
 from httpx import ASGITransport, AsyncClient, BasicAuth
 from backend.main import app
@@ -5,7 +6,7 @@ from backend.database import init_db, async_session
 from backend.models import Document, Quiz, Question, Attempt
 
 
-AUTH = BasicAuth("admin", "test")
+AUTH = BasicAuth(os.environ.get("BASIC_AUTH_USER", "admin"), os.environ.get("BASIC_AUTH_PASS", "quiz2026"))
 
 
 @pytest.fixture

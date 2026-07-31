@@ -13,11 +13,16 @@
         :item="item"
       />
       <div class="review-actions">
-        <button @click="$router.push('/')" class="btn-primary">返回首页</button>
+        <button @click="$router.push('/')" class="btn-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          </svg>
+          返回首页
+        </button>
       </div>
     </div>
 
-    <p v-if="error" class="error">{{ error }}</p>
+    <p v-if="error" class="error-text" role="alert">{{ error }}</p>
   </div>
 </template>
 
@@ -43,3 +48,10 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+.review-actions {
+  text-align: center;
+  margin-top: var(--space-8);
+}
+</style>

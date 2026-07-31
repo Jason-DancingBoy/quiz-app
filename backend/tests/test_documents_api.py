@@ -1,4 +1,5 @@
 import pytest
+import os
 from httpx import ASGITransport, AsyncClient, BasicAuth
 from backend.main import app
 from backend.database import init_db
@@ -6,8 +7,9 @@ from backend.database import init_db
 
 @pytest.fixture
 async def client():
+    auth = BasicAuth(os.environ.get("BASIC_AUTH_USER", "admin"), os.environ.get("BASIC_AUTH_PASS", "quiz2026"))
     async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test", auth=BasicAuth("admin", "test")
+        transport=ASGITransport(app=app), base_url="http://test", auth=auth
     ) as ac:
         yield ac
 

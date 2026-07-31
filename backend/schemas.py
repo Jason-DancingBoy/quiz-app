@@ -18,15 +18,13 @@ class DocumentOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class DocumentDetail(DocumentOut):
+    content: str
+
+
 class GenerateRequest(BaseModel):
     difficulty: str = Field(..., pattern="^(easy|medium|hard)$")
     question_count: int = Field(..., ge=5, le=20)
-
-
-class QuizStatus(BaseModel):
-    id: int
-    status: str
-    progress: Optional[str] = None
 
 
 class QuestionPreview(BaseModel):
@@ -36,11 +34,21 @@ class QuestionPreview(BaseModel):
     order_num: int
 
 
+class QuizStatus(BaseModel):
+    id: int
+    status: str
+    progress: Optional[str] = None
+    questions: list[QuestionPreview] = []
+    generated_count: int = 0
+    total_count: int = 0
+
+
 class QuizReady(BaseModel):
     id: int
     status: str
     difficulty: str
     total: int
+    submitted: bool = False
     questions: list[QuestionPreview]
 
 
@@ -55,6 +63,8 @@ class SubmitRequest(BaseModel):
 
 class AnswerResult(BaseModel):
     question_id: int
+    content: str
+    options: list[str]
     selected_index: int
     correct_index: int
     is_correct: bool

@@ -2,6 +2,10 @@ import os
 import re
 from dataclasses import dataclass
 
+from backend.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 @dataclass
 class ParsedDocument:
@@ -49,8 +53,32 @@ def parse_docx(filepath: str) -> ParsedDocument:
     return ParsedDocument(title=title, chunks=chunk_text(text))
 
 
+def _split_long_paragraph(para: str, max_len: int) -> list[str]:
+    """Split a long paragraph at sentence boundaries, falling back to hard cut."""
+    sentences = re.split(r"(?<=[。！？；\n])", para)
+    result = []
+    current = ""
+    for sent in sentences:
+        if not sent.strip():
+            continue
+        if len(current) + len(sent) <= max_len:
+            current += sent
+        else:
+            if current:
+                result.append(current.strip())
+            if len(sent) >= max_len:
+                for i in range(0, len(sent), max_len):
+                    result.append(sent[i:i + max_len].strip())
+                current = ""
+            else:
+                current = sent
+    if current.strip():
+        result.append(current.strip())
+    return result
+
+
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 100) -> list[str]:
-    """Split text by paragraph boundaries, respecting chunk_size with overlap."""
+    """Split text by paragraph boundaries, falling back to sentence boundaries, then hard cut."""
     paragraphs = re.split(r"\n\s*\n", text.strip())
     chunks = []
     current = ""
@@ -67,8 +95,8 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 100) -> list[str
                 chunks.append(current)
             if len(para) >= chunk_size:
                 effective_size = chunk_size - overlap
-                for i in range(0, len(para), effective_size):
-                    chunks.append(para[i:i + effective_size].strip())
+                for sub_chunk in _split_long_paragraph(para, effective_size):
+                    chunks.append(sub_chunk)
                 current = ""
             else:
                 current = para
@@ -86,17 +114,33 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 100) -> list[str
     return chunks
 
 
+def parse_pptx(filepath: str) -> ParsedDocument:
+    from pptx import Presentation
+    prs = Presentation(filepath)
+    texts = []
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            if shape.has_text_frame:
+                texts.append(shape.text_frame.text)
+    title = os.path.basename(filepath)
+    return ParsedDocument(title=title, chunks=chunk_text("\n".join(texts)))
+
+
 PARSERS = {
     ".md": parse_markdown,
     ".txt": parse_markdown,
     ".pdf": parse_pdf,
     ".docx": parse_docx,
+    ".pptx": parse_pptx,
 }
 
 
 def parse_file(filepath: str) -> ParsedDocument:
     ext = os.path.splitext(filepath)[1].lower()
+    logger.info("Parsing file: %s (type=%s)", filepath, ext)
     parser = PARSERS.get(ext)
     if parser is None:
         raise ValueError(f"Unsupported file type: {ext}")
-    return parser(filepath)
+    result = parser(filepath)
+    logger.info("File parsed successfully: %s (%d chunks)", filepath, len(result.chunks))
+    return result

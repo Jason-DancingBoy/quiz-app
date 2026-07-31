@@ -5,7 +5,6 @@ from backend.services.generator import build_quiz_prompt, parse_quiz_response
 
 def test_build_quiz_prompt():
     prompt = build_quiz_prompt(
-        doc_context="Agent Loop 是 AI Agent 的核心机制。",
         knowledge_summary="核心概念: Agent Loop",
         difficulty="medium",
         question_count=5,

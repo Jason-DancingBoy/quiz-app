@@ -1,0 +1,23 @@
+[Unit]
+Description=Quiz App
+After=network.target
+
+[Service]
+Type=simple
+User=jason
+WorkingDirectory=/home/jason/learning/quiz-app
+EnvironmentFile=/home/jason/learning/quiz-app/.env
+Environment=DATABASE_URL=sqlite+aiosqlite:////home/jason/learning/quiz-app/data/quiz.db
+Environment=LIGHTRAG_DIR=/home/jason/learning/quiz-app/data/lightrag
+Environment=CHROMA_PERSIST_DIR=/home/jason/learning/quiz-app/data/chroma
+Environment=UPLOAD_DIR=/home/jason/learning/quiz-app/data/uploads
+Environment=STATIC_DIR=/home/jason/learning/quiz-app/static
+Environment=HF_ENDPOINT=https://hf-mirror.com
+Environment=HF_HOME=/home/jason/learning/quiz-app/models
+ExecStart=/home/jason/learning/quiz-app/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 9200
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+Environment=VAULT_DIR=/home/jason/learning/vault

@@ -6,3 +6,15 @@ frontend/node_modules
 frontend/dist
 *.egg-info
 .env
+
+# Runtime data
+venv/
+data/
+backend/data/
+models/
+
+# Build output
+static/
+
+# Test output
+backend/tests/ragas_output/
