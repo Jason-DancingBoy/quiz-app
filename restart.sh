@@ -39,7 +39,8 @@ if [ ! -x "$VENV/bin/uvicorn" ]; then
   rm -rf "$VENV"
   python3 -m venv "$VENV" || { echo "venv 创建失败" >> "$LOG"; exit 1; }
   "$VENV/bin/pip" install -q --upgrade pip >> "$LOG" 2>&1
-  for idx in "https://pypi.org/simple" "https://pypi.tuna.tsinghua.edu.cn/simple" "https://mirrors.aliyun.com/pypi/simple/"; do
+  # N150 在国内：国内镜像优先，pypi.org 兜底
+  for idx in "https://pypi.tuna.tsinghua.edu.cn/simple" "https://mirrors.aliyun.com/pypi/simple/" "https://pypi.org/simple"; do
     log "pip install -i $idx"
     if "$VENV/bin/pip" install -q -r "$DIR/requirements.txt" -i "$idx" >> "$LOG" 2>&1; then
       break
