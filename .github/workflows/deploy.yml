@@ -40,7 +40,7 @@ jobs:
         run: |
           mkdir -p pkg
           cp -r backend pkg/
-          cp -r frontend/dist pkg/static
+          cp -r static pkg/static
           cp backend/requirements.txt pkg/requirements.txt
           cp restart.sh pkg/restart.sh
           echo "${{ steps.ver.outputs.sha }}" > pkg/.version
