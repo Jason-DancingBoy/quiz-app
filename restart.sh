@@ -15,12 +15,12 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"; }
 
 # 防并发：同一时间只允许一个 restart 实例
 # （deploy-agent cron 健康检查与 webhook 部署可能重叠触发，并发 pip install 会损坏 venv）
+# 阻塞等待锁而非跳过：若另一个 restart 正在运行（含首次 pip 安装），等它完成后再执行，
+# 避免 deploy-agent 把「跳过」误判为部署成功
 LOCK_FILE=/tmp/quiz-app-restart.lock
 exec 9>"$LOCK_FILE"
-if ! flock -n 9; then
-  log "另一个 restart 正在运行，跳过"
-  exit 0
-fi
+flock 9
+log "获取重启锁，开始执行"
 
 # 杀旧进程
 PID=$(lsof -ti:$PORT 2>/dev/null)
