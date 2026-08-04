@@ -13,6 +13,15 @@ MODELS="$HOME/quiz-app-models"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"; }
 
+# 防并发：同一时间只允许一个 restart 实例
+# （deploy-agent cron 健康检查与 webhook 部署可能重叠触发，并发 pip install 会损坏 venv）
+LOCK_FILE=/tmp/quiz-app-restart.lock
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  log "另一个 restart 正在运行，跳过"
+  exit 0
+fi
+
 # 杀旧进程
 PID=$(lsof -ti:$PORT 2>/dev/null)
 if [ -n "$PID" ]; then
@@ -27,6 +36,7 @@ cd "$DIR" || exit 1
 # 首次部署：创建 venv + 安装依赖（一次性，需几分钟）
 if [ ! -x "$VENV/bin/uvicorn" ]; then
   log "创建 venv 并安装依赖（首次部署，需几分钟）..."
+  rm -rf "$VENV"
   python3 -m venv "$VENV" || { echo "venv 创建失败" >> "$LOG"; exit 1; }
   "$VENV/bin/pip" install -q --upgrade pip >> "$LOG" 2>&1
   for idx in "https://pypi.org/simple" "https://pypi.tuna.tsinghua.edu.cn/simple" "https://mirrors.aliyun.com/pypi/simple/"; do
