@@ -2,8 +2,10 @@ import pytest
 import os
 from urllib.parse import unquote
 from httpx import ASGITransport, AsyncClient, BasicAuth
+from sqlalchemy import select
 from backend.main import app
-from backend.database import init_db
+from backend.database import init_db, async_session
+from backend.models import Document
 
 
 @pytest.fixture
@@ -69,6 +71,52 @@ async def test_download_uploaded_file(client):
 
 
 @pytest.mark.asyncio
+async def test_download_uploaded_file_chinese_title(client):
+    """Upload with a Chinese filename round-trips through FileResponse filename*."""
+    title = "中文笔记.md"
+    resp = await client.post(
+        "/api/documents/upload",
+        files={"file": (title, "# 中文".encode("utf-8"), "text/markdown")},
+    )
+    assert resp.status_code == 200
+    doc_id = resp.json()["id"]
+
+    resp = await client.get(f"/api/documents/{doc_id}/download")
+    assert resp.status_code == 200
+    assert resp.content == "# 中文".encode("utf-8")
+    assert title in unquote(resp.headers["content-disposition"])
+
+    # cleanup: 删除接口会同时移除磁盘文件
+    resp = await client.delete(f"/api/documents/{doc_id}")
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_download_uploaded_file_missing_on_disk(client):
+    """Upload whose disk file was removed still exists in DB -> download returns 404."""
+    resp = await client.post(
+        "/api/documents/upload",
+        files={"file": ("gone.txt", b"will vanish", "text/plain")},
+    )
+    assert resp.status_code == 200
+    doc_id = resp.json()["id"]
+
+    # Simulate the disk file going missing (e.g. manual deletion/cleanup job).
+    async with async_session() as db:
+        doc = await db.execute(select(Document).where(Document.id == doc_id))
+        doc = doc.scalar_one()
+        assert doc.file_path and os.path.exists(doc.file_path)
+        os.remove(doc.file_path)
+
+    resp = await client.get(f"/api/documents/{doc_id}/download")
+    assert resp.status_code == 404
+
+    # cleanup: 删除接口容忍磁盘文件已缺失，同时移除 DB 行
+    resp = await client.delete(f"/api/documents/{doc_id}")
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_download_paste_document(client):
     resp = await client.post(
         "/api/documents",
@@ -88,3 +136,22 @@ async def test_download_paste_document(client):
 async def test_download_nonexistent_document(client):
     resp = await client.get("/api/documents/999999/download")
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_download_paste_title_crlf_cleanup(client):
+    """A paste title with control chars must not inject raw CRLF into Content-Disposition."""
+    evil = "evil\r\nX-Evil: injected"
+    resp = await client.post("/api/documents", json={"title": evil, "content": "content"})
+    assert resp.status_code == 200
+    doc_id = resp.json()["id"]
+
+    resp = await client.get(f"/api/documents/{doc_id}/download")
+    assert resp.status_code == 200
+    header = resp.headers["content-disposition"]
+    assert "\r" not in header
+    assert "\n" not in header
+
+    # cleanup: 删除接口会同时移除磁盘文件
+    resp = await client.delete(f"/api/documents/{doc_id}")
+    assert resp.status_code == 200

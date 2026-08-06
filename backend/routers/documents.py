@@ -179,7 +179,7 @@ async def download_document(doc_id: int, db: AsyncSession = Depends(get_db)):
         return FileResponse(doc.file_path, filename=doc.title)
 
     if doc.source_type == "paste":
-        safe_name = re.sub(r'[\\/"]', "", doc.title).strip() or "document"
+        safe_name = re.sub(r'[\x00-\x1f\x7f\\\\/"]', "", doc.title).strip() or "document"
         if not safe_name.lower().endswith(".txt"):
             safe_name += ".txt"
         ascii_name = safe_name.encode("ascii", "ignore").decode() or "document.txt"
