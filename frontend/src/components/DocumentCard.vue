@@ -19,6 +19,19 @@
       </div>
     </div>
     <div class="actions">
+      <a
+        :href="'/api/documents/' + doc.id + '/download'"
+        download
+        class="btn-icon"
+        title="下载"
+        aria-label="下载"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </a>
       <button @click="$emit('view', doc)" class="btn-outline">查看内容</button>
       <button @click="$emit('generate', doc)" class="btn-primary">生成题目</button>
       <button @click="$emit('delete', doc)" class="btn-danger">删除</button>
@@ -93,6 +106,26 @@ defineEmits(['view', 'generate', 'delete'])
 .actions .btn-danger {
   padding: 8px 16px;
   font-size: var(--text-sm);
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  min-height: 32px;
+  min-width: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.btn-icon:hover {
+  color: var(--color-text);
+  background: var(--color-border-light);
 }
 
 @media (max-width: 480px) {
