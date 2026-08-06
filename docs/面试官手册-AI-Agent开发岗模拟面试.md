@@ -1,10 +1,12 @@
 # 面试官手册：AI Agent 开发岗模拟面试
 
 > 创建日期：2026-08-06
-> 岗位对标：AI Agent 开发工程师（初级，参考 2026 年市场 JD）
+> 岗位对标：AI Agent 开发工程师（初-中级，参考 2026 年市场 JD）
 > 面试形式：纯口答 + 口述设计题（不写代码）
 > 建议时长：45–60 分钟
-> 面试者画像：C++ 开发背景（工程思维好）、写过简单 Agent demo 并添加过功能、日常用 AI Agent 辅助编码
+> 面试者画像：C++ 开发背景，两个真实 Agent 项目（Live-Edit + Quiz-App），代码已核实
+
+> **版本说明**：本文档含两个版本。第一~六节为通用版（面向初级）；**第七节为定制版（面向李炯炫，简历已核实）**——面试时直接使用第七节。
 
 ---
 
@@ -179,3 +181,104 @@
 3. **答错引导，不直接判死**：先问「还有别的思路吗？」再看是否真的不会
 4. **时间控制**：Q12（测试）、Q14（定位问题）超出 2 分钟没思路就收，避免拖慢节奏
 5. **打分时分开记**：概念分和工程分分开，别因为表达好就全给高分
+
+---
+
+# 第七节：定制版（李炯炫）— 简历已核实
+
+> 面试定位：**中级为主 + 带一点高级架构题**。两个项目代码都已核实（Quiz-App 本仓库；Live-Edit 已 clone 分析）。
+
+## 7.1 简历核实总表（面试官背诵版）
+
+| 简历声称 | 代码核实结果 | 面试策略 |
+|---|---|---|
+| Quiz-App：RAGAS 评测「Context Relevancy / Context Precision / Faithfulness」三指标 | **只实现了 Faithfulness**（`build_ragas_metrics()` 仅返回 1 个指标）；另两个是自研的「格式合规率 + 逐题 1-5 质量分」 | 🔴 **全场第一题必问**：验证诚实度 |
+| Quiz-App：「固定 seed 保证可复现」 | `random.seed(seed)` 只影响采样；**LLM 调用未传 seed**，DeepSeek 官方不保证 seed 确定性 | 🟡 追问细节 |
+| Quiz-App：「日配额 50 次/天限流」 | `quota.py` 是**单进程内存计数**（global 变量），重启清零、多实例失效 | 🟡 生产化追问 |
+| Quiz-App：分层采样 / 超时 / SSE / 删索引 / JSON 兜底 / temp 0.7→0.3 | 全部属实（代码完全匹配） | ✅ 加分项，可深挖细节 |
+| Live-Edit：Agent Loop + 三退出条件 | 属实：`max_rounds`（默认15）+ 无工具自动退出 + 用户取消中断 | ✅ 加分 |
+| Live-Edit：Tool Registry 三种注册方式 | 属实：内置 / TOML / @tool 装饰器，带优先级 | ✅ 加分 |
+| Live-Edit：JSON Schema「自动生成」 | **Schema 是手写的**（每个工具 `create()` 手动定义 input_schema），非从签名自动推断 | 🟡 措辞夸大，可挖 |
+| Live-Edit：三阶记忆系统（L1 摘要/L2 向量/L3 知识库） | 全部属实且实现完整（`ShortTermMemory` 三档摘要、`LongTermMemory` 余弦+时效衰减+命中加权、`KnowledgeBase` SHA256 同步） | ✅ 强加分，最值得深挖 |
+| Live-Edit：Human-in-the-Loop（worktree + safety.py） | 属实：Git Worktree 隔离 + `check_shell_cmd` 黑/白名单 | ✅ 加分 |
+| Live-Edit：自愈评估（lint→test→preview→introspect→html_diff + 修复循环） | 属实：五阶段 + `_run_agent_loop_fix` 修复循环 | ✅ 加分 |
+| Live-Edit：/continue 断点恢复 | 属实：每轮持久化 + `_repair_messages` 修复未配对 tool_use + worktree TTL 保留 | ✅ 加分，细节很深 |
+| Live-Edit：append-only 审计 + Prometheus | 属实：`audit_events` 表 + 自研 `Metrics` 渲染 Prometheus 文本 | ✅ 加分 |
+
+**结论**：核心能力真实且扎实，水平**明显超过初级**。简历有「包装措辞」（RAGAS 三指标、JSON Schema 自动生成、seed 可复现），但**不是造假**——是「研究过但没全落地」的程度。面试核心目标：**区分真落地 vs 知道概念**。
+
+## 7.2 关键验证题（按优先级排序）
+
+### 🔴 Q-V1（全场第一题）RAGAS 三指标（Quiz-App）
+「你简历写了评测 Context Relevancy / Context Precision / Faithfulness 三个 RAGAS 指标。分别说说这三个各自测什么？你在项目里实际落地了哪几个？」
+- 满分回答：三个概念定义 + 「实际只落了 Faithfulness，另外两个研究过，因为我的场景是生成题不是问答，Context Precision 意义不大」→ **诚实 + 有判断力**
+- 危险回答：「三个都用了，RAGAS 库自带的」→ 代码里没有，说明简历注水
+- 追问：「那你的格式合规率和质量分是 RAGAS 还是自研的？」→ 期望：自研（`check_format_compliance` + `score_question_quality`）
+
+### 🟡 Q-V2 限流的单进程问题（Quiz-App）
+「这个项目生产部署了，限流 50 次/天是怎么实现的？如果部署两个 worker 进程会怎样？」
+- 期望：内存计数 + 主动指出「多进程会失效、重启清零，应该用 Redis/DB」→ 工程意识强
+- 危险：声称「存 DB/Redis」→ 与代码不符
+
+### 🟡 Q-V3 JSON Schema 生成（Live-Edit）
+「你说工具注册表自动生成 JSON Schema——怎么从 Python 函数签名生成？」
+- 满分：诚实说「是手写的 input_schema，不是自动推断」+ 解释为什么手写更可控
+- 危险：含糊其辞「用了 pydantic」→ 代码里没有
+
+### ✅ Q-V4 记忆系统深挖（Live-Edit，最有价值）
+「三阶记忆系统，短时记忆的『超窗截断 + 增量摘要』具体怎么触发的？」
+- 期望：能讲出三档（`max_full_rounds` 内不动 → 超窗只截断 → 截断+LLM 摘要，超长只截断不再花 token 摘要）→ 说明真做过
+
+「长时记忆『余弦+时效衰减+命中频次加权』，加权公式长什么样？」
+- 期望：`final = cosine × exp(-rate×days) + hit_weight × min(hit,10)` 或接近的表述
+- 深挖：「为什么命中次数要封顶 10？」→ 防热门 chunk 无限霸榜
+
+「低层检索为空自动降级是什么意思？」
+- 期望：L2 长时记忆无结果 → 降级到 L3 项目知识库（`if not memories_hit`）→ 逻辑清晰
+
+### ✅ Q-V5 自愈评估深挖（Live-Edit）
+「评估五阶段是什么？introspect（LLM 自查）判定通过的标准是什么？」
+- 期望：能讲出「lint→test→preview→introspect→html_diff」+ 自查判定逻辑
+- 高级追问：「introspect 用字符串判断『通过』两个字，会不会误判？怎么改？」→ 看他能否指出弱点（`passed = "通过" in text[:100] and "未通过" not in text[:100]`）
+- 期望改进方案：正则/结构化 JSON 输出/让 LLM 输出布尔字段
+
+### 🟡 Q-V6 崩溃恢复细节（Live-Edit）
+「/continue 断点恢复，具体怎么保证崩溃后对话还能继续？」
+- 期望：每轮持久化 messages + worktree 保留（TTL 内不删）+ 修复未配对 tool_use（Anthropic API 要求 tool_use 紧跟 tool_result，崩溃会留下孤儿块）
+- 深挖：「什么情况下恢复会失败？」→ 能想到「worktree 被清理 / 没持久化到」加分
+
+## 7.3 高级架构题（带一点 B）
+
+### Q-A1 自研 vs 框架（Live-Edit）
+「你自研 Agent Loop 不用 LangGraph，为什么？什么场景你会选框架？」
+- 期望：自研理由 = 深度控制（审批、断点、审计、多模式）+ 学习成本；框架理由 = 团队协作、标准生态、多 Agent 编排
+- 判断：能说出「自研 ≠ 高级，是取舍」→ 真懂
+
+### Q-A2 Multi-Agent 设计
+「两个 Agent 协作『读代码→改代码→跑测试』，你怎么分工和通信？」
+- 期望：职责分离（读/改/测）+ 共享状态（worktree/文件）+ 结果交接（结构化消息）
+- 深挖：「如果改代码的 Agent 和跑测试的 Agent 各说各话怎么办？」→ 共享仓库/文件系统作为「事实源」
+
+### Q-A3 Agent 上生产会挂的三个点
+「Live-Edit 上生产，最可能挂的三个点是什么？」
+- 期望（参考）：① 死循环/token 爆炸（有 max_rounds 已防）② 工具误操作破坏代码（有 worktree+safety 已防）③ LLM 输出畸形 tool_use（有 _repair_messages）④ 成本失控
+- 判断：能否用自己系统的机制举例说明「我已经防了 X」
+
+### Q-A4 Agent 评测体系
+「Agent 输出每次不一样，你怎么知道这次改动是变好还是变坏？」
+- 期望：把 Quiz-App 的 RAGAS 思路迁移过来——固定场景集 + 指标（任务成功率/工具调用效率/最终结果匹配）+ 回归对比
+
+## 7.4 定制评分表
+
+| 维度 | 权重 | 得分(1-5) | 备注 |
+|---|---|---|---|
+| 诚实度（Q-V1 是第一道） | 20% | | 直接问没做的部分，看是否承认 |
+| 概念深度（RAGAS/记忆/评估） | 30% | | 能否讲出实现细节而非概念 |
+| 工程意识（限流/成本/失败模式） | 25% | | 生产化思维 |
+| 架构判断（自研vs框架/multi-agent） | 15% | | 高级题加分项 |
+| 表达与思维 | 10% | | |
+
+关键结论判定：
+- Q-V1 诚实承认只落 Faithfulness + Q-V4 记忆公式讲得清 → **实际水平中级偏上**
+- Q-V1 含糊 + Q-V4 只讲概念 → 简历包装，实际初级
+- 全链路细节都对 → 可考虑对标中级甚至高级初级
