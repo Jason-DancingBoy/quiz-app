@@ -25,6 +25,10 @@ os.environ.setdefault(
     f"sqlite+aiosqlite:///{PROJECT_ROOT / 'data' / 'quiz.db'}",
 )
 os.environ.setdefault(
+    "UPLOAD_DIR",
+    str(PROJECT_ROOT / "data" / "uploads"),
+)
+os.environ.setdefault(
     "EMBEDDING_MODEL_PATH",
     str(
         PROJECT_ROOT

@@ -1,5 +1,6 @@
 import pytest
 import os
+from urllib.parse import unquote
 from httpx import ASGITransport, AsyncClient, BasicAuth
 from backend.main import app
 from backend.database import init_db
@@ -46,3 +47,44 @@ async def test_delete_document(client):
     assert resp.status_code == 200
     resp = await client.get("/api/documents")
     assert all(d["id"] != doc_id for d in resp.json())
+
+
+@pytest.mark.asyncio
+async def test_download_uploaded_file(client):
+    resp = await client.post(
+        "/api/documents/upload",
+        files={"file": ("notes.txt", b"hello from upload", "text/plain")},
+    )
+    assert resp.status_code == 200
+    doc_id = resp.json()["id"]
+
+    resp = await client.get(f"/api/documents/{doc_id}/download")
+    assert resp.status_code == 200
+    assert resp.content == b"hello from upload"
+    assert "notes.txt" in resp.headers["content-disposition"]
+
+    # cleanup: 删除接口会同时移除磁盘文件
+    resp = await client.delete(f"/api/documents/{doc_id}")
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_download_paste_document(client):
+    resp = await client.post(
+        "/api/documents",
+        json={"title": "我的笔记", "content": "hello paste content"},
+    )
+    assert resp.status_code == 200
+    doc_id = resp.json()["id"]
+
+    resp = await client.get(f"/api/documents/{doc_id}/download")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/plain")
+    assert resp.text == "hello paste content"
+    assert "笔记.txt" in unquote(resp.headers["content-disposition"])
+
+
+@pytest.mark.asyncio
+async def test_download_nonexistent_document(client):
+    resp = await client.get("/api/documents/999999/download")
+    assert resp.status_code == 404

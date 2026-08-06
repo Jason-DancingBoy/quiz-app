@@ -1,7 +1,10 @@
 import os
+import re
 import uuid
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -164,3 +167,30 @@ async def delete_document(doc_id: int, db: AsyncSession = Depends(get_db)):
         logger.warning("Failed to delete ChromaDB chunks (non-fatal): %s", e)
 
     return {"ok": True}
+
+
+@router.get("/documents/{doc_id}/download")
+async def download_document(doc_id: int, db: AsyncSession = Depends(get_db)):
+    doc = await db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(404, "Document not found")
+
+    if doc.source_type == "upload" and doc.file_path and os.path.exists(doc.file_path):
+        return FileResponse(doc.file_path, filename=doc.title)
+
+    if doc.source_type == "paste":
+        safe_name = re.sub(r'[\\/"]', "", doc.title).strip() or "document"
+        if not safe_name.lower().endswith(".txt"):
+            safe_name += ".txt"
+        ascii_name = safe_name.encode("ascii", "ignore").decode() or "document.txt"
+        disposition = (
+            f'attachment; filename="{ascii_name}"; '
+            f"filename*=UTF-8''{quote(safe_name)}"
+        )
+        return Response(
+            content=doc.content,
+            media_type="text/plain; charset=utf-8",
+            headers={"Content-Disposition": disposition},
+        )
+
+    raise HTTPException(404, "No downloadable content")
