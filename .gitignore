@@ -18,3 +18,6 @@ static/
 
 # Test output
 backend/tests/ragas_output/
+
+# IDE data
+.codebuddy/
