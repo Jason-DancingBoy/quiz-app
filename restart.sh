@@ -73,9 +73,9 @@ if command -v systemd-run >/dev/null 2>&1; then
   fi
   systemctl --user stop quiz-app.scope >/dev/null 2>&1
   systemctl --user reset-failed quiz-app.scope >/dev/null 2>&1
-  nohup systemd-run --user --scope --collect --unit="quiz-app" -- "$VENV/bin/uvicorn" backend.main:app --host 0.0.0.0 --port "$PORT" > "$LOG" 2>&1 &
+  nohup systemd-run --user --scope --collect --unit="quiz-app" -- "$VENV/bin/uvicorn" backend.main:app --host 0.0.0.0 --port "$PORT" 9>&- > "$LOG" 2>&1 &
 else
-  nohup "$VENV/bin/uvicorn" backend.main:app --host 0.0.0.0 --port "$PORT" > "$LOG" 2>&1 &
+  nohup "$VENV/bin/uvicorn" backend.main:app --host 0.0.0.0 --port "$PORT" 9>&- > "$LOG" 2>&1 &
 fi
 
 sleep 3
